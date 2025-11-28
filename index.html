@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>CRYPTINITY | Web4 Hybrid OS</title>
+    
+    <!-- LIBRARIES -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- FIREBASE INIT -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, setDoc, updateDoc, serverTimestamp, getDoc, limit, where, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC8FWRzYUnP8Q475Lb6KCqb-Ag9J4txgfM",
+            authDomain: "cryptinity-web4-v01.firebaseapp.com",
+            projectId: "cryptinity-web4-v01",
+            storageBucket: "cryptinity-web4-v01.firebasestorage.app",
+            messagingSenderId: "431735391458",
+            appId: "1:431735391458:web:0b3280efb230ef36870abb",
+            measurementId: "G-TWY5X0K9VP"
+        };
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            window.fb = { 
+                auth: getAuth(app), 
+                db: getFirestore(app),
+                fns: { 
+                    signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile, 
+                    collection, addDoc, query, orderBy, onSnapshot, doc, setDoc, updateDoc, serverTimestamp, getDoc, limit, where, arrayUnion, arrayRemove
+                } 
+            };
+            console.log("Web4 Node Initialized");
+        } catch(e) { console.error("Firebase Error:", e); }
+    </script>
+
+    <style>
+        /* --- HYBRID THEME ENGINE --- */
+        :root { --neon: #39ff14; --dark: #020202; --panel: rgba(12, 12, 12, 0.95); }
+        body { font-family: 'Rajdhani', sans-serif; background-color: var(--dark); color: #e0e0e0; overflow: hidden; overscroll-behavior: none; touch-action: manipulation; }
+        .brand-font { font-family: 'Orbitron', sans-serif; letter-spacing: 1px; }
+        
+        /* UTILS */
+        .glass { background: var(--panel); backdrop-filter: blur(12px); border: 1px solid rgba(57, 255, 20, 0.15); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); }
+        .neon-border { border: 1px solid var(--neon); box-shadow: 0 0 10px rgba(57, 255, 20, 0.3); }
+        .neon-text { text-shadow: 0 0 8px rgba(57, 255, 20, 0.6); }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .sparkle-btn { background: linear-gradient(45deg, #39ff14, #00f0ff); border: none; color: black; }
+        
+        /* ANIMATIONS & BACKGROUNDS */
+        .spot-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+        .spot { position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.15; animation: spotMove 20s infinite alternate; }
+        @keyframes spotMove { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(30px, -30px) scale(1.2); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useContext, createContext } = React;
+        const AppContext = createContext();
+
+        // --- GEMINI API INTEGRATION ---
+        const callGemini = async (prompt, systemPrompt) => {
+            const apiKey = ""; // Provided by environment
+            if (!apiKey) return "Error: Neural Net Offline (No API Key)";
+            
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "System Error: Core Unreachable";
+            } catch (error) {
+                console.error(error);
+                return "Connection Fault: Neural Link Broken";
+            }
+        };
+
+        const DOCS = {
+            whitepaper: "CRYPTINITY WEB4 WHITE PAPER\n\nEXECUTIVE SUMMARY:\nCryptinity Web4 is a futuristic hybrid super-application combining social media, digital finance, entertainment, and decentralized services. Native Token: CRYPT (CTY).\n\nARCHITECTURE:\nBuilt on a hybrid lattice-blockchain, ensuring quantum-resistant security and infinite scalability.",
+            vision: "To create the world's most advanced hybrid platform that merges social connectivity, digital identity, and decentralized financial systems into a seamless, secure, and self-evolving ecosystem.",
+            mission: "Empowering humanity through Web4 technology. We aim to democratize finance, ensure data sovereignty, and create a persistent digital reality.",
+            roadmap: "PHASE 1 (Current): Core OS Launch, Social Beta, Music Engine.\nPHASE 2: Wallet Integration, AI Finance, Mobile App.\nPHASE 3: NFT Marketplace, DeFi Protocols, Metaverse Gates.\nPHASE 4: Full Quantum Web4 Ecosystem."
+        };
+
+        const fileToDataURL = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e);
+                reader.readAsDataURL(file);
+            });
+        };
+
+        const HybridLogo = ({ size = 200, active = true }) => {
+            const mountRef = useRef(null);
+            useEffect(() => {
+                if(!mountRef.current || !window.THREE) return;
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+                camera.position.z = 8;
+                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(size, size);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                mountRef.current.innerHTML = '';
+                mountRef.current.appendChild(renderer.domElement);
+                const geometry = new THREE.TorusKnotGeometry(1.5, 0.4, 150, 8, 2, 3);
+                const coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                const core = new THREE.Mesh(geometry, coreMat);
+                core.material.polygonOffset = true; core.material.polygonOffsetFactor = 1;
+                const wireMat = new THREE.MeshBasicMaterial({ color: 0x39ff14, wireframe: true, transparent: true, opacity: 1 });
+                const wire = new THREE.Mesh(geometry, wireMat);
+                const group = new THREE.Group(); group.add(core); group.add(wire); scene.add(group);
+                const animate = () => {
+                    if(!mountRef.current) return;
+                    requestAnimationFrame(animate);
+                    if(active) { group.rotation.y += 0.015; group.rotation.x += 0.005; }
+                    renderer.render(scene, camera);
+                };
+                animate();
+                return () => { renderer.dispose(); };
+            }, [size, active]);
+            return <div ref={mountRef} className="filter drop-shadow-[0_0_15px_rgba(57,255,20,0.6)]" />;
+        };
+
+        // --- AUTH ---
+        const Auth = ({ setUser }) => {
+            const [isLogin, setIsLogin] = useState(true);
+            const [loading, setLoading] = useState(false);
+            const [form, setForm] = useState({email:'', pass:'', name:''});
+
+            const handleAuth = async (e) => {
+                e.preventDefault();
+                if(!window.fb) return alert("System Initializing...");
+                setLoading(true);
+                const { auth, db, fns } = window.fb;
+                try {
+                    let userCred;
+                    if(isLogin) {
+                        userCred = await fns.signInWithEmailAndPassword(auth, form.email, form.pass);
+                    } else {
+                        userCred = await fns.createUserWithEmailAndPassword(auth, form.email, form.pass);
+                        const robotAvatar = `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${userCred.user.uid}`;
+                        await fns.updateProfile(userCred.user, { displayName: form.name, photoURL: robotAvatar });
+                        await fns.setDoc(fns.doc(db, "users", userCred.user.uid), {
+                            displayName: form.name, email: form.email, joined: fns.serverTimestamp(),
+                            avatar: robotAvatar, cover: "#39ff14", bio: "Web4 Early Adopter",
+                            anthem: null, followers: [], following: [], verified: false,
+                            settings: { notifications: true, privacy: false, security: true }
+                        });
+                    }
+                    setUser(userCred.user);
+                } catch(err) { alert(err.message); }
+                setLoading(false);
+            };
+
+            return (
+                <div className="h-screen w-full bg-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://media.giphy.com/media/U3qYN8S0j3bpK/giphy.gif')] opacity-10 bg-cover pointer-events-none"></div>
+                    <div className="z-10 w-full max-w-sm flex flex-col items-center">
+                        <HybridLogo size={180} />
+                        <h1 className="text-3xl font-bold text-white brand-font mt-4 tracking-widest neon-text">CRYPTINITY</h1>
+                        <p className="text-[#39ff14] text-[10px] tracking-[0.4em] uppercase font-bold mb-8">Web4 Hybrid OS</p>
+                        <div className="glass w-full p-6 rounded-2xl border-t border-[#39ff14]">
+                            <form onSubmit={handleAuth} className="space-y-4">
+                                {!isLogin && <input required placeholder="Display Name" className="w-full bg-black/60 border border-gray-800 rounded p-3 text-white outline-none focus:border-[#39ff14]" onChange={e=>setForm({...form, name:e.target.value})} />}
+                                <input required type="email" placeholder="Email Access ID" className="w-full bg-black/60 border border-gray-800 rounded p-3 text-white outline-none focus:border-[#39ff14]" onChange={e=>setForm({...form, email:e.target.value})} />
+                                <input required type="password" placeholder="Passkey" className="w-full bg-black/60 border border-gray-800 rounded p-3 text-white outline-none focus:border-[#39ff14]" onChange={e=>setForm({...form, pass:e.target.value})} />
+                                <button type="submit" className="w-full py-3 bg-[#39ff14] text-black font-bold brand-font rounded hover:bg-white transition flex justify-center shadow-[0_0_15px_rgba(57,255,20,0.4)]">
+                                    {loading ? <i className="fas fa-circle-notch fa-spin"></i> : (isLogin ? 'INITIALIZE' : 'CREATE WEB4 ID')}
+                                </button>
+                            </form>
+                            <button onClick={()=>setIsLogin(!isLogin)} className="w-full mt-4 text-xs text-gray-500 hover:text-[#39ff14] transition">{isLogin ? 'Request New Identity' : 'Access Existing Node'}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- SEARCH OVERLAY ---
+        const Search = ({ close, goToProfile }) => {
+            const [queryStr, setQueryStr] = useState("");
+            const [results, setResults] = useState([]);
+
+            useEffect(() => {
+                if(queryStr.length < 3) { setResults([]); return; }
+                const q = window.fb.fns.query(window.fb.fns.collection(window.fb.db, "users"), window.fb.fns.where("displayName", ">=", queryStr), window.fb.fns.where("displayName", "<=", queryStr + '\uf8ff'), window.fb.fns.limit(5));
+                const unsub = window.fb.fns.onSnapshot(q, snap => {
+                    setResults(snap.docs.map(d => ({...d.data(), uid: d.id})));
+                });
+                return () => unsub();
+            }, [queryStr]);
+
+            return (
+                <div className="absolute inset-0 bg-black/95 z-50 p-4 animate-fade-in">
+                    <div className="flex gap-3 mb-6">
+                        <input autoFocus value={queryStr} onChange={e=>setQueryStr(e.target.value)} placeholder="Search Nodes..." className="flex-1 bg-gray-900 border border-[#39ff14] rounded-full px-4 py-2 text-white outline-none" />
+                        <button onClick={close} className="text-gray-400">Cancel</button>
+                    </div>
+                    <div className="space-y-3">
+                        {results.map(r => (
+                            <div key={r.uid} onClick={()=>{ goToProfile(r.uid); close(); }} className="flex items-center gap-3 p-3 glass rounded-xl cursor-pointer hover:border-[#39ff14]">
+                                <img src={r.avatar} className="w-10 h-10 rounded-full object-cover" />
+                                <div><div className="text-white font-bold text-sm">{r.displayName}</div><div className="text-gray-500 text-xs">User Node</div></div>
+                            </div>
+                        ))}
+                        {queryStr.length > 2 && results.length === 0 && <div className="text-gray-500 text-center mt-4">No nodes found.</div>}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- SOCIAL ---
+        const Social = ({ user, goToProfile }) => {
+            const [posts, setPosts] = useState([]);
+            const [newPost, setNewPost] = useState("");
+            const [media, setMedia] = useState(null);
+            const [loading, setLoading] = useState(false);
+            const [aiLoading, setAiLoading] = useState(false);
+            const [commenting, setCommenting] = useState(null); 
+            const [commentText, setCommentText] = useState("");
+
+            useEffect(() => {
+                const checkAdmin = async () => {
+                    const today = new Date().toISOString().split('T')[0];
+                    const adminKey = `admin_daily_${today}`;
+                    if (localStorage.getItem(adminKey)) return; 
+                    const target = new Date(); target.setDate(target.getDate() + 60);
+                    const now = new Date(); const days = Math.floor((target - now)/(1000*60*60*24));
+                    try {
+                        await window.fb.fns.addDoc(window.fb.fns.collection(window.fb.db, "posts"), {
+                            author: "Cryptinity_Admin", avatar: "https://api.dicebear.com/9.x/bottts-neutral/svg?seed=admin",
+                            text: `DAILY UPDATE: Network Launch T-Minus ${days} Days. Global Hashrate Stable.`,
+                            image: null, uid: "ADMIN", likes: [], comments: [], createdAt: window.fb.fns.serverTimestamp(), isSystem: true
+                        });
+                        localStorage.setItem(adminKey, "true");
+                    } catch(e) {}
+                };
+                if(user) checkAdmin();
+            }, [user]);
+
+            useEffect(() => {
+                const q = window.fb.fns.query(window.fb.fns.collection(window.fb.db, "posts"), window.fb.fns.orderBy("createdAt", "desc"), window.fb.fns.limit(40));
+                const unsub = window.fb.fns.onSnapshot(q, (snap) => {
+                    setPosts(snap.docs.map(d => ({...d.data(), id: d.id})));
+                });
+                return () => unsub();
+            }, []);
+
+            const handleFile = async (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    if(file.size > 800000) return alert("File too large! Max 800KB.");
+                    const base64 = await fileToDataURL(file);
+                    setMedia({ url: base64, type: file.type.startsWith('video') ? 'video' : 'image' });
+                }
+            };
+
+            // --- GEMINI FEATURE: AI POST DRAFT ---
+            const handleAIDraft = async () => {
+                if (aiLoading) return;
+                setAiLoading(true);
+                const topic = newPost || "the future of web4";
+                const systemPrompt = "You are a ghostwriter for a cyberpunk social network. Write a short, exciting, cryptic social media post (max 180 chars) about the user's topic. Use emojis like 🚀🔮💎. Don't use hashtags. Keep it punchy.";
+                const draft = await callGemini(`Write a post about: ${topic}`, systemPrompt);
+                setNewPost(draft);
+                setAiLoading(false);
+            };
+
+            const handlePost = async (e) => {
+                e.preventDefault();
+                if(!newPost.trim() && !media) return;
+                setLoading(true);
+                try {
+                    await window.fb.fns.addDoc(window.fb.fns.collection(window.fb.db, "posts"), {
+                        author: user.displayName, avatar: user.photoURL, uid: user.uid,
+                        text: newPost, image: media ? media.url : null, mediaType: media ? media.type : 'image',
+                        createdAt: window.fb.fns.serverTimestamp(), likes: [], comments: []
+                    });
+                    setNewPost(""); setMedia(null);
+                } catch(e) { alert("Post failed: " + e.message); }
+                setLoading(false);
+            };
+
+            const handleLike = async (postId, likes) => {
+                const ref = window.fb.fns.doc(window.fb.db, "posts", postId);
+                const safeLikes = Array.isArray(likes) ? likes : [];
+                const hasLiked = safeLikes.includes(user.uid);
+                await window.fb.fns.updateDoc(ref, { likes: hasLiked ? safeLikes.filter(id=>id!==user.uid) : [...safeLikes, user.uid] });
+            };
+
+            const handleComment = async (e, postId) => {
+                e.preventDefault(); if(!commentText.trim()) return;
+                await window.fb.fns.updateDoc(window.fb.fns.doc(window.fb.db, "posts", postId), {
+                    comments: window.fb.fns.arrayUnion({ text: commentText, author: user.displayName, uid: user.uid, time: Date.now() })
+                });
+                setCommentText("");
+            };
+
+            const handleShare = () => {
+                alert("Link copied to clipboard! Shared to Web4 Network.");
+            };
+
+            return (
+                <div className="h-full overflow-y-auto pb-24 bg-black">
+                    <div className="p-4 border-b border-gray-900 bg-gray-900/30">
+                        <div className="flex gap-3 mb-2">
+                            <img src={user.photoURL} className="w-10 h-10 rounded-full border border-[#39ff14]"/>
+                            <textarea value={newPost} onChange={e=>setNewPost(e.target.value)} placeholder="Broadcast to Web4..." className="flex-1 bg-transparent text-white outline-none text-sm resize-none h-10 pt-2"></textarea>
+                        </div>
+                        {media && <div className="mb-2 relative w-20 h-20 bg-gray-800 rounded overflow-hidden">
+                            {media.type==='video' ? <video src={media.url} className="w-full h-full object-cover"/> : <img src={media.url} className="w-full h-full object-cover"/>}
+                            <button onClick={()=>setMedia(null)} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs">×</button>
+                        </div>}
+                        <div className="flex justify-between items-center">
+                            <div className="flex gap-2">
+                                <label className="text-[#39ff14] text-xs cursor-pointer flex items-center gap-1 hover:bg-white/10 px-2 py-1 rounded">
+                                    <i className="fas fa-photo-video"></i> Media
+                                    <input type="file" hidden accept="image/*,video/*" onChange={handleFile}/>
+                                </label>
+                                <button onClick={handleAIDraft} disabled={aiLoading} className="text-cyan-400 text-xs cursor-pointer flex items-center gap-1 hover:bg-cyan-900/30 px-2 py-1 rounded border border-cyan-400/30">
+                                    <i className={`fas fa-magic ${aiLoading ? 'fa-spin' : ''}`}></i> {aiLoading ? 'Generating...' : 'AI Draft'}
+                                </button>
+                            </div>
+                            <button onClick={handlePost} disabled={loading} className="text-black bg-[#39ff14] px-4 py-1 rounded text-xs font-bold">{loading ? 'POSTING...' : 'POST'}</button>
+                        </div>
+                    </div>
+
+                    <div className="pb-4">
+                        {posts.map((p) => {
+                            const safeLikes = Array.isArray(p.likes) ? p.likes : [];
+                            const safeComments = Array.isArray(p.comments) ? p.comments : [];
+                            return (
+                                <div key={p.id} className={`mb-4 border-b border-gray-900 bg-black ${p.isSystem ? 'border border-[#39ff14]/30' : ''}`}>
+                                    <div className="flex items-center justify-between p-3">
+                                        <div className="flex items-center gap-3 cursor-pointer" onClick={()=>goToProfile(p.uid)}>
+                                            <div className="relative">
+                                                <img src={p.avatar} className="w-8 h-8 rounded-full border border-gray-700 object-cover"/>
+                                                {p.isSystem && <i className="fas fa-shield-alt absolute -bottom-1 -right-1 text-[#39ff14] text-[10px]"></i>}
+                                            </div>
+                                            <div><div className={`text-sm font-bold ${p.isSystem ? 'text-[#39ff14]' : 'text-white'}`}>{p.author}</div><div className="text-[10px] text-gray-500">Verified Node</div></div>
+                                        </div>
+                                        <button className="text-gray-500"><i className="fas fa-ellipsis-h"></i></button>
+                                    </div>
+                                    {p.image && (
+                                        <div className="w-full bg-gray-900 relative">
+                                            {p.mediaType === 'video' ? <video controls src={p.image} className="w-full max-h-[400px] object-cover"></video> : <img src={p.image} className="w-full max-h-[400px] object-cover"/>}
+                                        </div>
+                                    )}
+                                    <div className="p-3">
+                                        <div className="text-sm text-gray-300 mb-2"><span className={`font-bold mr-2 ${p.isSystem ? 'text-[#39ff14]': 'text-white'}`}>{p.author}</span>{p.text}</div>
+                                        <div className="flex gap-6 text-gray-400 text-lg items-center">
+                                            <button onClick={()=>handleLike(p.id, safeLikes)} className={`transition ${safeLikes.includes(user.uid)?'text-[#39ff14]':''}`}><i className={`${safeLikes.includes(user.uid)?'fas':'far'} fa-heart`}></i> <span className="text-xs font-sans">{safeLikes.length}</span></button>
+                                            <button onClick={()=>setCommenting(commenting === p.id ? null : p.id)} className="hover:text-blue-400 transition"><i className="far fa-comment"></i> <span className="text-xs font-sans">{safeComments.length}</span></button>
+                                            <button onClick={handleShare} className="hover:text-white transition"><i className="far fa-share-square"></i></button>
+                                        </div>
+                                        {commenting === p.id && (
+                                            <div className="mt-3 bg-gray-900/50 p-2 rounded animate-fade-in">
+                                                <div className="max-h-32 overflow-y-auto mb-2 space-y-2">
+                                                    {safeComments.map((c, idx) => (
+                                                        <div key={idx} className="text-xs text-gray-300"><span className="font-bold text-[#39ff14] mr-2">{c.author}:</span>{c.text}</div>
+                                                    ))}
+                                                </div>
+                                                <form onSubmit={(e)=>handleComment(e, p.id)} className="flex gap-2">
+                                                    <input autoFocus value={commentText} onChange={e=>setCommentText(e.target.value)} className="flex-1 bg-transparent border-b border-gray-700 text-xs text-white outline-none" placeholder="Add a comment..." />
+                                                    <button type="submit" className="text-[#39ff14] text-xs font-bold">POST</button>
+                                                </form>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MINING ---
+        const Mining = () => {
+            const [active, setActive] = useState(false);
+            const [balance, setBalance] = useState(0.000000);
+            const [countdown, setCountdown] = useState("");
+            
+            useEffect(() => {
+                const target = new Date(); target.setDate(target.getDate() + 60);
+                const t = setInterval(() => {
+                    const now = new Date().getTime(); const d = target - now;
+                    const days = Math.floor(d/(1000*60*60*24));
+                    const hours = Math.floor((d%(1000*60*60*24))/(1000*60*60));
+                    const mins = Math.floor((d%(1000*60*60))/(1000*60));
+                    const secs = Math.floor((d%(1000*60))/1000);
+                    setCountdown(`${days}d ${hours}h ${mins}m ${secs}s`);
+                }, 1000);
+                const m = setInterval(() => { if(active) setBalance(prev => prev + 0.00000012); }, 100);
+                return () => { clearInterval(t); clearInterval(m); };
+            }, [active]);
+
+            return (
+                <div className="h-full overflow-y-auto pb-24 relative flex flex-col items-center p-4">
+                    <div className="spot-bg"><div className="spot w-80 h-80 top-0 left-0 bg-[#39ff14]"></div><div className="spot w-80 h-80 bottom-0 right-0 bg-blue-600"></div></div>
+                    <h2 className="text-2xl font-bold brand-font text-white mb-2 z-10 mt-4 tracking-widest">CLOUD <span className="text-[#39ff14]">MINING</span></h2>
+                    
+                    {/* Price Display */}
+                    <div className="z-10 bg-black/50 border border-[#39ff14]/50 rounded-full px-4 py-1 mb-4">
+                        <span className="text-white text-xs font-mono">1 CTY = <span className="text-[#39ff14] font-bold">$0.0004</span></span>
+                    </div>
+
+                    <div className={`transition-all duration-700 z-10 mb-8 ${active ? 'scale-110 drop-shadow-[0_0_30px_#39ff14]' : 'opacity-80 grayscale'}`}><HybridLogo size={220} active={active} /></div>
+                    <div className="glass w-full rounded-2xl p-6 border-t border-[#39ff14] z-10 relative mb-4">
+                        <div className="flex justify-between items-center mb-6">
+                            <div><div className="text-[10px] uppercase text-gray-500">Mined (Locked)</div><div className="text-3xl font-mono text-white tracking-widest">{balance.toFixed(8)} <span className="text-[#39ff14] text-sm">CTY</span></div></div>
+                            <div className="text-right"><div className="text-[10px] uppercase text-gray-500">Hashrate</div><div className={`font-bold ${active?'text-[#39ff14] animate-pulse':'text-red-500'}`}>{active ? '14.5 TH/s' : 'OFFLINE'}</div></div>
+                        </div>
+                        <div className="text-center mb-6"><div className="text-[9px] text-[#39ff14] uppercase tracking-[0.3em] mb-1">Launch Countdown</div><div className="text-2xl font-mono text-white font-bold">{countdown}</div></div>
+                        <button onClick={()=>setActive(!active)} className={`w-full py-4 rounded-xl font-bold brand-font text-sm tracking-widest transition ${active ? 'bg-red-900/40 text-red-500 border border-red-500' : 'bg-[#39ff14] text-black hover:bg-white'}`}>{active ? 'HALT MINING SEQUENCE' : 'ACTIVATE CLOUD NODE'}</button>
+                    </div>
+                    <div className="w-full glass p-4 rounded-xl z-10 border border-gray-800 space-y-4">
+                         <div className="text-[#39ff14] text-xs font-bold uppercase"><i className="fas fa-wallet mr-2"></i> Withdrawal Configuration</div>
+                         <div><label className="text-[10px] text-gray-500 uppercase">CTY Wallet Address</label><div className="flex bg-black border border-gray-700 rounded p-2 items-center"><input placeholder="Enter your CTY Address..." className="flex-1 bg-transparent text-xs text-white outline-none font-mono"/><i className="fas fa-qrcode text-gray-500"></i></div></div>
+                         <div><label className="text-[10px] text-gray-500 uppercase">Network</label><select className="w-full bg-black border border-gray-700 rounded p-2 text-xs text-white outline-none"><option>Web4 Chain (Native) - 0 Fee</option><option>Binance Smart Chain (BEP20)</option><option>Ethereum (ERC20)</option><option>Tron (TRC20)</option></select></div>
+                         <div className="flex gap-4"><div className="flex-1 bg-black/50 border border-gray-800 p-2 rounded"><div className="text-[9px] text-gray-500">Min Withdrawal</div><div className="text-white font-mono text-xs">500 CTY</div></div><div className="flex-1 bg-black/50 border border-gray-800 p-2 rounded"><div className="text-[9px] text-gray-500">Max Withdrawal</div><div className="text-white font-mono text-xs">50,000 CTY</div></div></div>
+                         <button className="w-full bg-gray-800 text-gray-500 font-bold py-3 rounded text-xs uppercase cursor-not-allowed">Withdrawal Locked Until Launch</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- GEMINI FEATURE: ORACLE APP ---
+        const OracleApp = ({ goBack }) => {
+            const [msgs, setMsgs] = useState([{ sender: 'ai', text: 'Greetings, User. I am The Oracle. Ask me about Web4, Crypto, or the Future.' }]);
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+            const scrollRef = useRef();
+
+            const send = async (e) => {
+                e.preventDefault();
+                if (!input.trim() || loading) return;
+                const userMsg = input;
+                setMsgs(p => [...p, { sender: 'user', text: userMsg }]);
+                setInput('');
+                setLoading(true);
+
+                // Call Gemini
+                const systemPrompt = "You are 'The Oracle', the sentient AI core of the Cryptinity Web4 OS. You are helpful but speak in a cool, futuristic, cyberpunk style. You know about crypto, the metaverse, and digital sovereignty. Keep responses concise.";
+                const reply = await callGemini(userMsg, systemPrompt);
+                
+                setMsgs(p => [...p, { sender: 'ai', text: reply }]);
+                setLoading(false);
+            };
+
+            useEffect(() => {
+                if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            }, [msgs]);
+
+            return (
+                <div className="h-full flex flex-col bg-black pb-24">
+                    <div className="p-4 border-b border-gray-800 flex items-center gap-3">
+                        <button onClick={goBack} className="text-[#39ff14]"><i className="fas fa-arrow-left"></i></button>
+                        <h2 className="text-white font-bold brand-font text-sm">THE <span className="text-[#39ff14]">ORACLE</span></h2>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
+                        {msgs.map((m, i) => (
+                            <div key={i} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] p-3 rounded-xl text-sm ${m.sender === 'user' ? 'bg-[#39ff14] text-black' : 'glass text-white border border-[#39ff14]/30'}`}>
+                                    {m.sender === 'ai' && <div className="text-[10px] text-cyan-400 mb-1 font-bold">CORE_AI_RESPONSE</div>}
+                                    {m.text}
+                                </div>
+                            </div>
+                        ))}
+                        {loading && <div className="text-center text-xs text-[#39ff14] animate-pulse">PROCESSING NEURAL QUERY...</div>}
+                    </div>
+                    <form onSubmit={send} className="p-3 border-t border-gray-800 flex gap-2">
+                        <input value={input} onChange={e => setInput(e.target.value)} className="flex-1 bg-gray-900 rounded-full px-4 text-white text-sm outline-none border border-transparent focus:border-[#39ff14]" placeholder="Query the Oracle..." />
+                        <button type="submit" className="text-[#39ff14] font-bold px-2"><i className="fas fa-paper-plane"></i></button>
+                    </form>
+                </div>
+            );
+        };
+
+        // --- PRIVATE CHAT ---
+        const PrivateChat = ({ user, targetUid, goBack }) => {
+            const [msgs, setMsgs] = useState([]);
+            const [txt, setTxt] = useState("");
+            const scrollRef = useRef();
+            const chatId = [user.uid, targetUid].sort().join("_");
+            useEffect(() => {
+                const q = window.fb.fns.query(window.fb.fns.collection(window.fb.db, "messages", chatId, "chats"), window.fb.fns.orderBy("createdAt", "asc"));
+                const unsub = window.fb.fns.onSnapshot(q, snap => {
+                    setMsgs(snap.docs.map(d => d.data()));
+                    if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                });
+                return () => unsub();
+            }, [chatId]);
+            const send = async (e) => {
+                e.preventDefault(); if(!txt.trim()) return;
+                await window.fb.fns.addDoc(window.fb.fns.collection(window.fb.db, "messages", chatId, "chats"), { text: txt, from: user.uid, createdAt: window.fb.fns.serverTimestamp() });
+                setTxt("");
+            };
+            return (
+                <div className="h-full flex flex-col bg-black pb-24">
+                    <div className="p-4 border-b border-gray-800 flex items-center gap-3">
+                        <button onClick={goBack} className="text-[#39ff14]"><i className="fas fa-arrow-left"></i></button>
+                        <h2 className="text-white font-bold brand-font text-sm">ENCRYPTED <span className="text-[#39ff14]">CHANNEL</span></h2>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={scrollRef}>
+                        {msgs.length===0 && <div className="text-center text-gray-700 text-xs">Start messaging...</div>}
+                        {msgs.map((m,i) => (<div key={i} className={`flex ${m.from===user.uid?'justify-end':'justify-start'}`}><div className={`max-w-[70%] p-3 rounded-xl text-sm ${m.from===user.uid?'bg-[#39ff14] text-black':'glass text-white'}`}>{m.text}</div></div>))}
+                    </div>
+                    <form onSubmit={send} className="p-3 border-t border-gray-800 flex gap-2"><input value={txt} onChange={e=>setTxt(e.target.value)} className="flex-1 bg-gray-900 rounded-full px-4 text-white text-sm outline-none" placeholder="Message..." /><button type="submit" className="text-[#39ff14] font-bold px-2"><i className="fas fa-paper-plane"></i></button></form>
+                </div>
+            );
+        };
+
+        // --- SETTINGS ---
+        const Settings = ({ user }) => {
+            const [userSettings, setUserSettings] = useState({ notifications: true, privacy: false, security: true });
+            
+            useEffect(() => {
+                window.fb.fns.getDoc(window.fb.fns.doc(window.fb.db, "users", user.uid)).then(d => {
+                    if(d.exists() && d.data().settings) setUserSettings(d.data().settings);
+                });
+            }, [user]);
+
+            const toggleSetting = async (key) => {
+                const newVal = !userSettings[key];
+                const newSet = { ...userSettings, [key]: newVal };
+                setUserSettings(newSet);
+                await window.fb.fns.updateDoc(window.fb.fns.doc(window.fb.db, "users", user.uid), { settings: newSet });
+            };
+
+            return (
+                <div className="h-full overflow-y-auto pb-24 bg-black p-4">
+                    <h2 className="text-2xl font-bold text-white brand-font mb-6">SYSTEM <span className="text-[#39ff14]">CONTROLS</span></h2>
+                    <div className="space-y-4">
+                        <div className="glass p-4 rounded-xl flex justify-between items-center">
+                            <span className="text-white font-bold">Push Notifications</span>
+                            <button onClick={()=>toggleSetting('notifications')} className={`w-12 h-6 rounded-full relative transition ${userSettings.notifications?'bg-[#39ff14]':'bg-gray-700'}`}><div className={`absolute top-1 w-4 h-4 bg-black rounded-full transition-all ${userSettings.notifications?'left-7':'left-1'}`}></div></button>
+                        </div>
+                        <div className="glass p-4 rounded-xl flex justify-between items-center">
+                            <span className="text-white font-bold">Privacy (Private Account)</span>
+                            <button onClick={()=>toggleSetting('privacy')} className={`w-12 h-6 rounded-full relative transition ${userSettings.privacy?'bg-[#39ff14]':'bg-gray-700'}`}><div className={`absolute top-1 w-4 h-4 bg-black rounded-full transition-all ${userSettings.privacy?'left-7':'left-1'}`}></div></button>
+                        </div>
+                        <div className="glass p-4 rounded-xl flex justify-between items-center">
+                            <span className="text-white font-bold">2FA Security</span>
+                            <button onClick={()=>toggleSetting('security')} className={`w-12 h-6 rounded-full relative transition ${userSettings.security?'bg-[#39ff14]':'bg-gray-700'}`}><div className={`absolute top-1 w-4 h-4 bg-black rounded-full transition-all ${userSettings.security?'left-7':'left-1'}`}></div></button>
+                        </div>
+                        <button onClick={()=>window.fb.fns.signOut(window.fb.auth)} className="w-full py-3 mt-8 border border-red-500 text-red-500 font-bold rounded-xl">TERMINATE SESSION</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- DOCS APP ---
+        const DocsApp = ({ goBack }) => {
+            const [section, setSection] = useState('whitepaper');
+            return (
+                <div className="h-full overflow-y-auto pb-24 bg-black p-4">
+                    <div className="flex items-center gap-3 mb-6">
+                         <button onClick={goBack} className="text-[#39ff14]"><i className="fas fa-arrow-left"></i></button>
+                         <h2 className="text-2xl font-bold text-white brand-font">ARCHIVE <span className="text-[#39ff14]">CORE</span></h2>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto mb-6 hide-scroll">
+                        {Object.keys(DOCS).map(k => (
+                            <button key={k} onClick={()=>setSection(k)} className={`px-4 py-2 rounded-full text-xs font-bold uppercase whitespace-nowrap border ${section===k?'bg-[#39ff14] text-black border-[#39ff14]':'text-gray-400 border-gray-800'}`}>{k}</button>
+                        ))}
+                    </div>
+                    <div className="glass p-6 rounded-xl border border-gray-800 relative overflow-hidden">
+                        <div className="spot-bg"><div className="spot w-full h-full bg-[#39ff14] opacity-5"></div></div>
+                        <h3 className="text-xl font-bold text-[#39ff14] uppercase mb-4 brand-font">{section}</h3>
+                        <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed font-mono">{DOCS[section]}</p>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- PROFILE ---
+        const Profile = ({ currentUser, targetUid, startChat, player }) => {
+            const [data, setData] = useState(null);
+            const [tab, setTab] = useState('posts');
+            const [isEditingBio, setIsEditingBio] = useState(false);
+            const [bioText, setBioText] = useState("");
+            
+            const uid = targetUid || currentUser.uid;
+            const isMe = uid === currentUser.uid;
+            
+            useEffect(() => {
+                const unsub = window.fb.fns.onSnapshot(window.fb.fns.doc(window.fb.db, "users", uid), d => {
+                    if(d.exists()) {
+                        const ud = d.data();
+                        setData(ud);
+                        setBioText(ud.bio || "");
+                        if(ud.anthem && player && player.song?.audio !== ud.anthem) {
+                            player.play({ name: `${ud.displayName}'s Anthem`, artist_name: "Web4 User", image: ud.avatar, audio: ud.anthem });
+                        }
+                    }
+                });
+                return () => unsub();
+            }, [uid]);
+
+            const handleUpload = async (e, field) => {
+                const file = e.target.files[0];
+                if(!file || !isMe) return;
+                const limit = field === 'anthem' ? 2000000 : 800000;
+                if(file.size > limit) return alert(`File too large. Max ${field==='anthem'?'2MB':'800KB'}.`);
+                const base64 = await fileToDataURL(file);
+                await window.fb.fns.updateDoc(window.fb.fns.doc(window.fb.db, "users", uid), { [field]: base64 });
+            };
+
+            const saveBio = async () => {
+                await window.fb.fns.updateDoc(window.fb.fns.doc(window.fb.db, "users", uid), { bio: bioText });
+                setIsEditingBio(false);
+            };
+
+            const toggleFollow = async () => {
+                if(isMe) return;
+                const ref = window.fb.fns.doc(window.fb.db, "users", uid);
+                const amFollowing = data.followers?.includes(currentUser.uid);
+                if(amFollowing) {
+                    await window.fb.fns.updateDoc(ref, { followers: window.fb.fns.arrayRemove(currentUser.uid) });
+                    await window.fb.fns.updateDoc(window.fb.fns.doc(window.fb.db, "users", currentUser.uid), { following: window.fb.fns.arrayRemove(uid) });
+                } else {
+                    await window.fb.fns.updateDoc(ref, { followers: window.fb.fns.arrayUnion(currentUser.uid) });
+                    await window.fb.fns.updateDoc(window.fb.fns.doc(window.fb.db, "users", currentUser.uid), { following: window.fb.fns.arrayUnion(uid) });
+                }
+            };
+
+            if(!data) return <div className="p-10 text-center text-[#39ff14]">LOADING NODE...</div>;
+
+            return (
+                <div className="h-full overflow-y-auto pb-24 bg-black">
+                    <div className="h-40 relative group" style={{backgroundColor: data.cover || '#39ff14'}}>
+                        {data.cover?.startsWith('data') && <img src={data.cover} className="w-full h-full object-cover"/>}
+                        {isMe && <label className="absolute top-2 right-2 bg-black/60 text-[#39ff14] p-2 rounded cursor-pointer opacity-0 group-hover:opacity-100 transition"><i className="fas fa-camera"></i> <input type="file" hidden accept="image/*" onChange={(e)=>handleUpload(e,'cover')}/></label>}
+                    </div>
+                    <div className="px-5 -mt-12 relative">
+                        <div className="w-24 h-24 rounded-full border-4 border-black bg-white relative overflow-hidden group">
+                            <img src={data.avatar} className="w-full h-full object-cover"/>
+                            {isMe && <label className="absolute inset-0 bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 cursor-pointer transition"><i className="fas fa-camera"></i> <input type="file" hidden accept="image/*" onChange={(e)=>handleUpload(e,'avatar')}/></label>}
+                        </div>
+                        <div className="mt-3 flex justify-between items-start">
+                            <div>
+                                <h1 className="text-2xl font-bold text-white brand-font">{data.displayName} <i className="fas fa-check-circle text-[#39ff14] text-xs"></i></h1>
+                                <p className="text-gray-500 text-xs">UID: {uid.slice(0,8)}...</p>
+                            </div>
+                            {!isMe && (
+                                <div className="flex gap-2">
+                                    <button onClick={toggleFollow} className={`px-4 py-1 rounded-full text-xs font-bold border ${data.followers?.includes(currentUser.uid) ? 'border-gray-600 text-gray-400' : 'bg-[#39ff14] text-black border-[#39ff14]'}`}>
+                                        {data.followers?.includes(currentUser.uid) ? 'UNFOLLOW' : 'FOLLOW'}
+                                    </button>
+                                    <button onClick={()=>startChat(uid)} className="bg-gray-800 text-white px-4 py-1 rounded-full text-xs font-bold"><i className="fas fa-envelope"></i></button>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Anthem */}
+                        <div className="mt-4 glass p-3 rounded-xl flex items-center gap-3 border border-gray-800">
+                             <div className="w-8 h-8 rounded-full bg-[#39ff14] flex items-center justify-center text-black animate-spin-slow"><i className="fas fa-compact-disc"></i></div>
+                             <div className="flex-1">
+                                 <div className="text-[9px] text-gray-500 uppercase">Profile Anthem</div>
+                                 <div className="text-white text-xs font-bold truncate">{data.anthem ? "Playing..." : "No Anthem Set"}</div>
+                             </div>
+                             {isMe && <label className="text-[#39ff14] text-xs cursor-pointer hover:underline"><i className="fas fa-upload mr-1"></i> Upload <input type="file" hidden accept="audio/*" onChange={(e)=>handleUpload(e,'anthem')}/></label>}
+                        </div>
+
+                        <div className="flex gap-6 my-4 text-sm">
+                            <div className="text-white font-bold">{data.followers?.length || 0} <span className="text-gray-500 font-normal">Followers</span></div>
+                            <div className="text-white font-bold">{data.following?.length || 0} <span className="text-gray-500 font-normal">Following</span></div>
+                        </div>
+
+                        <div className="flex border-b border-gray-800 mb-4">
+                            {['posts','about','bio'].map(t => (
+                                <button key={t} onClick={()=>setTab(t)} className={`flex-1 py-3 text-xs font-bold uppercase ${tab===t?'text-[#39ff14] border-b-2 border-[#39ff14]':'text-gray-500'}`}>{t}</button>
+                            ))}
+                        </div>
+
+                        <div className="min-h-[200px] text-gray-400 text-sm">
+                            {tab === 'posts' && <div className="text-center py-10">No activities on the blockchain.</div>}
+                            {tab === 'about' && <div className="space-y-2"><p>Joined: {data.joined?.toDate().toDateString()}</p><p>Node: Active</p></div>}
+                            {tab === 'bio' && (
+                                <div className="glass p-4 rounded-xl border border-gray-800 relative">
+                                    {isMe && <button onClick={()=>setIsEditingBio(!isEditingBio)} className="absolute top-2 right-2 text-gray-500 hover:text-white"><i className="fas fa-pencil-alt"></i></button>}
+                                    {isEditingBio ? (
+                                        <div>
+                                            <textarea value={bioText} onChange={e=>setBioText(e.target.value)} className="w-full bg-black/50 text-white p-2 rounded mb-2 border border-gray-700 outline-none" rows="3"></textarea>
+                                            <button onClick={saveBio} className="bg-[#39ff14] text-black px-3 py-1 rounded text-xs font-bold">SAVE BIO</button>
+                                        </div>
+                                    ) : (
+                                        <div className="italic">"{data.bio}"</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- APPS HUB ---
+        const AppsHub = ({ openApp }) => (
+            <div className="h-full overflow-y-auto pb-24 p-4 bg-black">
+                <h2 className="text-2xl font-bold text-white brand-font mb-6">WEB4 <span className="text-[#39ff14]">ECOSYSTEM</span></h2>
+                <div className="grid grid-cols-2 gap-4">
+                    <div onClick={()=>openApp('oracle')} className="aspect-[4/3] rounded-xl relative overflow-hidden glass border border-gray-800 flex items-center justify-center cursor-pointer hover:border-[#39ff14] transition shadow-[0_0_15px_rgba(57,255,20,0.1)] group">
+                        <div className="text-center">
+                            <i className="fas fa-brain text-4xl text-[#39ff14] mb-2 group-hover:scale-110 transition-transform"></i>
+                            <div className="font-bold text-white brand-font">The Oracle</div>
+                            <div className="text-[9px] text-[#39ff14] mt-1 font-bold">AI CORE</div>
+                        </div>
+                    </div>
+                    <div onClick={()=>openApp('docs')} className="aspect-[4/3] rounded-xl relative overflow-hidden glass border border-gray-800 flex items-center justify-center cursor-pointer hover:border-[#39ff14] transition">
+                        <div className="text-center">
+                            <i className="fas fa-file-alt text-3xl text-cyan-400 mb-2"></i>
+                            <div className="font-bold text-white brand-font">White Paper</div>
+                        </div>
+                    </div>
+                    {[{n:"Wallet", i:"wallet"},{n:"Games", i:"gamepad"},{n:"Casino", i:"dice"},{n:"NFTs", i:"images"},{n:"Visa", i:"credit-card"},{n:"Metaverse", i:"vr-cardboard"}].map((a,i)=>(
+                        <div key={i} className="aspect-[4/3] rounded-xl relative overflow-hidden glass border border-gray-800 flex items-center justify-center opacity-70">
+                             <div className="text-center">
+                                <i className={`fas fa-${a.i} text-2xl text-gray-500 mb-2`}></i>
+                                <div className="font-bold text-white brand-font mb-1">{a.n}</div>
+                                <div className="text-[9px] bg-gray-700 text-white px-1 rounded inline-block font-bold">SOON</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        // --- MUSIC ---
+        const Music = ({ player }) => {
+            const [tracks, setTracks] = useState([]);
+            const [localTracks, setLocalTracks] = useState([]);
+            const [tab, setTab] = useState('cloud');
+            useEffect(() => {
+                fetch(`https://api.jamendo.com/v3.0/tracks/?client_id=ecbc9437&format=jsonpretty&limit=20&order=popularity_total&imagesize=200`).then(r => r.json()).then(d => setTracks(d.results)).catch(()=>{});
+                setLocalTracks(JSON.parse(localStorage.getItem('my_uploads') || '[]'));
+            }, []);
+            const handleUpload = (e) => {
+                const file = e.target.files[0];
+                if(file) {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        const newTrack = { name: file.name.replace(/\.[^/.]+$/, ""), artist_name: "My Upload", image: "https://img.icons8.com/fluency/96/music-record.png", audio: evt.target.result, id: Date.now() };
+                        const updated = [newTrack, ...localTracks];
+                        setLocalTracks(updated); localStorage.setItem('my_uploads', JSON.stringify(updated));
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            return (
+                <div className="h-full overflow-y-auto pb-24 p-4 bg-black">
+                    <h2 className="text-2xl font-bold text-white brand-font mb-4">WEB4 <span className="text-[#39ff14]">AUDIO</span></h2>
+                    <div className="flex gap-4 mb-4">
+                        <button onClick={()=>setTab('cloud')} className={`text-xs font-bold uppercase ${tab==='cloud'?'text-[#39ff14]':'text-gray-500'}`}>Cloud Stream</button>
+                        <button onClick={()=>setTab('local')} className={`text-xs font-bold uppercase ${tab==='local'?'text-[#39ff14]':'text-gray-500'}`}>My Uploads</button>
+                    </div>
+                    {tab === 'local' && (
+                        <label className="block glass border-dashed border border-gray-700 p-4 rounded-xl text-center cursor-pointer mb-4 hover:border-[#39ff14]">
+                            <i className="fas fa-cloud-upload-alt text-2xl text-[#39ff14] mb-1"></i><div className="text-xs text-gray-400">Upload MP3</div><input type="file" hidden accept="audio/*" onChange={handleUpload}/>
+                        </label>
+                    )}
+                    {(tab==='cloud'?tracks:localTracks).map((t,i) => (
+                        <div key={i} onClick={()=>player.play(t)} className="flex items-center p-3 mb-2 glass rounded-xl cursor-pointer hover:border-[#39ff14]">
+                            <img src={t.image} className="w-12 h-12 rounded mr-3"/>
+                            <div className="flex-1 overflow-hidden"><div className="text-sm font-bold text-white truncate">{t.name}</div><div className="text-xs text-gray-500 truncate">{t.artist_name}</div></div>
+                            <button className="text-[#39ff14]"><i className="fas fa-play"></i></button>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // --- MAIN APP ---
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('feed');
+            const [targetUid, setTargetUid] = useState(null);
+            const [showSearch, setShowSearch] = useState(false);
+            
+            const [currentSong, setCurrentSong] = useState(null);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const audioRef = useRef(new Audio());
+            
+            const player = {
+                play: (track) => { setCurrentSong(track); setIsPlaying(true); audioRef.current.src = track.audio; audioRef.current.play().catch(e=>console.log("Autoplay blocked")); },
+                toggle: () => { if(isPlaying){ audioRef.current.pause(); setIsPlaying(false); } else { audioRef.current.play(); setIsPlaying(true); } },
+                song: currentSong
+            };
+
+            useEffect(() => {
+                if(!window.fb) return;
+                const unsub = window.fb.fns.onAuthStateChanged(window.fb.auth, u => setUser(u));
+                return () => unsub();
+            }, []);
+
+            const goToProfile = (uid) => { setTargetUid(uid); setView('profile'); };
+            const startChat = (uid) => { setTargetUid(uid); setView('chat_private'); };
+
+            if(!user) return <Auth setUser={setUser} />;
+
+            return (
+                <AppContext.Provider value={{ user, player }}>
+                    <div className="w-full h-screen bg-[#111] flex items-center justify-center">
+                        <div className="w-full h-full md:max-w-md md:h-[90vh] md:rounded-[3rem] md:border-[8px] md:border-gray-800 bg-black flex flex-col relative shadow-2xl overflow-hidden">
+                            {/* Header */}
+                            <header className="h-14 flex items-center justify-between px-4 glass z-30 relative shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8"><HybridLogo size={40} /></div>
+                                    <h1 className="text-lg font-bold brand-font text-white tracking-widest">CRYPTINITY</h1>
+                                </div>
+                                <div className="flex gap-4">
+                                    <button onClick={()=>setShowSearch(true)}><i className="fas fa-search text-gray-400 hover:text-white"></i></button>
+                                    <button onClick={()=>setView('settings')}><i className="fas fa-sliders-h text-gray-400 hover:text-white"></i></button>
+                                </div>
+                            </header>
+
+                            {/* Search Overlay */}
+                            {showSearch && <Search close={()=>setShowSearch(false)} goToProfile={goToProfile} />}
+
+                            {/* Views */}
+                            <main className="flex-1 overflow-hidden relative">
+                                {view === 'feed' && <Social user={user} goToProfile={goToProfile} />}
+                                {view === 'mining' && <Mining />}
+                                {view === 'apps' && <AppsHub openApp={setView} />}
+                                {view === 'oracle' && <OracleApp goBack={()=>setView('apps')} />}
+                                {view === 'music' && <Music player={player} />}
+                                {view === 'docs' && <DocsApp goBack={()=>setView('apps')} />}
+                                {view === 'settings' && <Settings user={user} />}
+                                {view === 'profile' && <Profile currentUser={user} targetUid={targetUid} startChat={startChat} player={player} />}
+                                {view === 'chat_private' && <PrivateChat user={user} targetUid={targetUid} goBack={()=>setView('feed')} />}
+                            </main>
+
+                            {/* Mini Player */}
+                            <div className={`absolute bottom-[60px] left-0 right-0 bg-[#111] border-t border-[#333] p-2 z-20 flex items-center gap-3 transition-transform ${currentSong?'translate-y-0':'translate-y-20'}`}>
+                                <img src={currentSong?.image} className={`w-10 h-10 rounded ${isPlaying?'animate-spin':''}`} style={{animationDuration:'5s'}}/>
+                                <div className="flex-1 min-w-0"><div className="text-white text-xs font-bold truncate">{currentSong?.name}</div></div>
+                                <button onClick={player.toggle} className="text-[#39ff14] text-xl px-2"><i className={`fas fa-${isPlaying?'pause':'play'}`}></i></button>
+                            </div>
+
+                            {/* Nav */}
+                            <nav className="h-16 bg-black border-t border-gray-900 grid grid-cols-5 items-center z-30 pb-safe shrink-0">
+                                {[{id:'feed',i:'home',l:'Home'},{id:'mining',i:'bolt',l:'Mine'},{id:'apps',i:'th',l:'Apps'},{id:'music',i:'music',l:'Music'},{id:'profile',i:'user',l:'Me'}].map(t => (
+                                    <button key={t.id} onClick={()=>{ setTargetUid(null); setView(t.id); }} className={`flex flex-col items-center gap-1 ${view===t.id ? 'text-[#39ff14]' : 'text-gray-600'}`}>
+                                        <div className={`text-xl ${view===t.id && t.id==='mining' ? 'animate-pulse' : ''}`}><i className={`fas fa-${t.i}`}></i></div>
+                                        <span className="text-[9px] uppercase font-bold tracking-wider">{t.l}</span>
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
+                    </div>
+                </AppContext.Provider>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
